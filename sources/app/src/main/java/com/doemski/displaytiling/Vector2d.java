@@ -3,9 +3,6 @@ package com.doemski.displaytiling;
 import static java.lang.Math.atan;
 import static java.lang.Math.toDegrees;
 
-/**
- * Created by Dome on 09.05.2015.
- */
 public class Vector2d {
     private final float x, y;
 
@@ -22,13 +19,13 @@ public class Vector2d {
         return this.y;
     }
 
-    public float angle(Vector2d v, char dir){
+    public float angle(Vector2d v, Direction dir){
         float a,b;
-        if(dir=='r'||dir=='l'){
+        if(dir==Direction.RIGHT||dir==Direction.LEFT){
             a=abs(this.x()-v.x());
             b=abs(this.y()-v.y());
             return (float)toDegrees(atan((double) b / a));
-        }else if(dir=='t'||dir=='b'){
+        }else if(dir==Direction.UP ||dir==Direction.DOWN){
             a=abs(this.y()-v.y());
             b=abs(this.x()-v.x());
             return (float)toDegrees(atan((double) b / a));

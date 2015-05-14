@@ -25,4 +25,5 @@ dependencies {
     compile 'org.altbeacon:android-beacon-library:2+'
     compile 'com.github.shell-software:fab:1.0.1'
     compile 'com.getbase:floatingactionbutton:1.9.0'
+    compile 'com.afollestad:material-dialogs:0.7.4.1'
 }
