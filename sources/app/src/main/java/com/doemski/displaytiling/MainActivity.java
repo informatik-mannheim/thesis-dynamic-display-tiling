@@ -5,6 +5,7 @@ import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
@@ -18,11 +19,13 @@ import android.view.animation.OvershootInterpolator;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.afollestad.materialdialogs.MaterialDialog;
 import com.software.shell.fab.FloatingActionButton;
 
 
 
 public class MainActivity extends ActionBarActivity implements View.OnTouchListener{
+    public static final String TAG = "";
 
     //TODO: ActionBarActivity Deprecated...
 
@@ -39,7 +42,7 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
 
     private Swipe swipe;
 
-    private WifiDirectManager wifiDirectManager;
+    private WifiDirectConnectionManager wifiDirectConnectionManager;
     private IntentFilter intentFilter;
 
 
@@ -57,7 +60,7 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
 
         mainImageView.setOnTouchListener(this);
 
-        wifiDirectManager = new WifiDirectManager((WifiP2pManager)getSystemService(Context.WIFI_P2P_SERVICE), this);
+        wifiDirectConnectionManager = new WifiDirectConnectionManager((WifiP2pManager)getSystemService(Context.WIFI_P2P_SERVICE), this);
 
 
         intentFilter = new IntentFilter();
@@ -235,6 +238,7 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
                         if(swipe.inProgress()) {
                             swipe.setSwipeEndPoint( new Vector2d(event.getRawX(), event.getRawY()));
                             Log.d("Swipe", swipe.toString());
+                            wifiDirectConnectionManager.discoverPeers(false);
                         }
                     }
                     break;
@@ -247,13 +251,13 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
     @Override
     protected void onResume() {
         super.onResume();
-        registerReceiver(wifiDirectManager.getReceiver(), intentFilter);
+        registerReceiver(wifiDirectConnectionManager.getReceiver(), intentFilter);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        unregisterReceiver(wifiDirectManager.getReceiver());
+        unregisterReceiver(wifiDirectConnectionManager.getReceiver());
     }
 
     private void buildAddButton(){
@@ -300,6 +304,22 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
         swipe = new Swipe(true, dir, centerPoint, edgePoint);
         Log.d("Swipe", swipe.toString());
 
-       wifiDirectManager.discoverPeers();
+       wifiDirectConnectionManager.discoverPeers(true);
+    }
+
+    public void openPeerListWindow(final WifiP2pDeviceList peers, String[] names, final String[] adresses){
+        new MaterialDialog.Builder(this)
+                .title(R.string.p2pConnectionDialogueTitle)
+                .items(names)
+                .itemsCallback(new MaterialDialog.ListCallback() {
+                    @Override
+                    public void onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
+                        Log.d("Device selected", "Name: " + text);
+                        wifiDirectConnectionManager.connectToPeer(peers.get(adresses[which]));
+                    }
+                })
+                .autoDismiss(true)
+                .show();
+
     }
 }

@@ -34,6 +34,8 @@ public class Swipe {
         }
     }
 
+    //TODO: Swipe Comparison (angles +-10deg?)
+
     public void setSwipeEndPoint(Vector2d swipeEndPoint){
         this.swipeEndPoint = swipeEndPoint;
         swipeInProgress = false;
