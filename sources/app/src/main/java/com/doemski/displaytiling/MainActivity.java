@@ -5,8 +5,11 @@ import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pManager;
+import android.os.AsyncTask;
+import android.os.Build;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -22,9 +25,12 @@ import android.widget.Toast;
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.software.shell.fab.FloatingActionButton;
 
+import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.List;
 
 
-public class MainActivity extends ActionBarActivity implements View.OnTouchListener{
+public class MainActivity extends ActionBarActivity implements View.OnTouchListener, Updateable{
     public static final String TAG = "";
 
     //TODO: ActionBarActivity Deprecated...
@@ -32,7 +38,7 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
     ImageView mainImageView;
     FloatingActionButton fabAddImage;
     FloatingActionButton crossIcon;
-    boolean isFullScreen;
+    boolean isFullScreen,isConnected;
     float crossIconX,crossIconY=0.0f;
     float crossIconXCentered,crossIconYCentered;//TODO:calculate instead of global var
     boolean crossIconMoving;//TODO:make local somehow
@@ -44,6 +50,8 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
 
     private WifiDirectConnectionManager wifiDirectConnectionManager;
     private IntentFilter intentFilter;
+
+    private List<MaterialDialog> listeners = new ArrayList<>();
 
 
     @Override
@@ -70,6 +78,9 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
         intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
 
         swipe=new Swipe();
+
+        wifiDirectConnectionManager.discoverPeers(false);
+        ConnectionState.getInstance().registerListener(this);
     }
 
     @Override
@@ -173,16 +184,16 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
 
                         //dragging the crossIcon off the screen TODO: use  if(event.getEdgeFlags()==MotionEvent.EDGE_RIGHT) instead?
                         if (event.getRawX() >= mainImageView.getWidth() - 30) {
-                            startConnectionProcess(event.getRawX(), event.getRawY(), Direction.RIGHT);
+                            startTilingProcess(event.getRawX(), event.getRawY(), Direction.RIGHT);
                         }
                         if (event.getRawX() <= 30) {
-                            startConnectionProcess(event.getRawX(), event.getRawY(), Direction.LEFT);
+                            startTilingProcess(event.getRawX(), event.getRawY(), Direction.LEFT);
                         }
                         if (event.getRawY() <= 30) {
-                            startConnectionProcess(event.getRawX(), event.getRawY(), Direction.UP);
+                            startTilingProcess(event.getRawX(), event.getRawY(), Direction.UP);
                         }
                         if (event.getRawY() >= mainImageView.getHeight() - 30) {
-                            startConnectionProcess(event.getRawX(), event.getRawY(), Direction.DOWN);
+                            startTilingProcess(event.getRawX(), event.getRawY(), Direction.DOWN);
                         }
                     }
 
@@ -252,12 +263,14 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
     protected void onResume() {
         super.onResume();
         registerReceiver(wifiDirectConnectionManager.getReceiver(), intentFilter);
+        ConnectionState.getInstance().registerListener(this);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         unregisterReceiver(wifiDirectConnectionManager.getReceiver());
+        ConnectionState.getInstance().unregisterListener(this);
     }
 
     private void buildAddButton(){
@@ -298,13 +311,30 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
         crossIcon.hide();
     }
 
-    private void startConnectionProcess(float x, float y, Direction dir){
+    private void startTilingProcess(float x, float y, Direction dir){
         Vector2d centerPoint = new Vector2d(mainImageView.getWidth() / 2, mainImageView.getHeight() / 2);
         Vector2d edgePoint = new Vector2d(x, y);
         swipe = new Swipe(true, dir, centerPoint, edgePoint);
-        Log.d("Swipe", swipe.toString());
+        Log.d("SWIPE", swipe.toString());
 
-       wifiDirectConnectionManager.discoverPeers(true);
+        ConnectionState conState = ConnectionState.getInstance();
+        if(conState.isConnected()){
+            if(conState.getClients()!=null){
+
+                mainImageView.buildDrawingCache();
+                for(InetAddress client : conState.getClients()){
+                    ImageFileSender ims = new ImageFileSender(getApplicationContext(), mainImageView.getDrawingCache());
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                        ims.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, (client.toString()));
+                    } else {
+                        ims.execute(client.toString(), "");
+                    }
+
+                    Log.d("GROUP OWNER", "ImageFileSender executed");
+                }
+            }
+        }
     }
 
     public void openPeerListWindow(final WifiP2pDeviceList peers, String[] names, final String[] adresses){
@@ -321,5 +351,54 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
                 .autoDismiss(true)
                 .show();
 
+    }
+
+    public void openConnectionWindow(boolean shouldConnect){
+
+        if(shouldConnect){
+            new MaterialDialog.Builder(this)
+                    .title(R.string.connection_window_not_connected_title)
+                    .content(R.string.connection_widow_not_connected_content)
+                    .positiveText(R.string.agree)
+                    .callback(new MaterialDialog.ButtonCallback() {
+                        @Override
+                        public void onPositive(MaterialDialog dialog) {
+                            wifiDirectConnectionManager.discoverPeers(true);
+                        }
+                    })
+                    .show();
+        } else {
+            new MaterialDialog.Builder(this)
+                    .title(R.string.connection_window_connected_title)
+                    .content(R.string.connection_window_connected_content)
+                    .positiveText(R.string.cool)
+                    .show();
+
+        }
+    }
+
+    @Override
+    public void connectionStateChanged(boolean isConnected) {
+
+        Log.d("Update","Connection: " + isConnected);
+
+        //Not Connected - Initiate Connection Process
+        if(!this.isConnected && !isConnected){
+            openConnectionWindow(true);
+
+        }
+
+        //Connection Lost - Reestablish Connection
+        if(this.isConnected && !isConnected){
+            wifiDirectConnectionManager.discoverPeers(false);
+            openConnectionWindow(true);
+        }
+
+        //Connection Established - Confirm
+        if(!this.isConnected && isConnected){
+            openConnectionWindow(false);
+        }
+
+        this.isConnected=isConnected;
     }
 }

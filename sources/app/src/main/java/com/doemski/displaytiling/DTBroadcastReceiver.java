@@ -57,14 +57,17 @@ public class DTBroadcastReceiver extends BroadcastReceiver{
                 if (wifiP2pManager == null) {
                     return;
                 }
-                NetworkInfo networkInfo =  intent
-                        .getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
+                NetworkInfo networkInfo =  intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
 
+                ConnectionState conState = ConnectionState.getInstance();
                 if (networkInfo.isConnected()) {
                     // We are connected with the other device, request connection
                     // info to find group owner IP
+                    conState.setConnected(true);
                     DTConnectionInfoListener connectionInfoListener= new DTConnectionInfoListener();
                     wifiP2pManager.requestConnectionInfo(channel, connectionInfoListener);
+                }else{
+                    conState.setConnected(false);
                 }
 
                 break;

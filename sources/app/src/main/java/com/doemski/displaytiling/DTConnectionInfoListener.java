@@ -23,15 +23,15 @@ public class DTConnectionInfoListener implements WifiP2pManager.ConnectionInfoLi
             // incoming connections.
 
             Log.d("is Group Owner", "true");
-            new FileServerAsyncTask().execute();
+            new ConnectionBuilder().execute();
 
         } else if (info.groupFormed) {
             // The other device acts as the group owner. In this case,
             // you'll want to create a client thread that connects to the group
             // owner.
             Log.d("is Group Owner", "false");
-            ClientAsyncTask client = new ClientAsyncTask();
-            client.execute(hostAdress);
+            new ClientAsyncTask().execute(hostAdress);
+
         }
     }
 }

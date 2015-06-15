@@ -13,20 +13,25 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
-public class FileServerAsyncTask extends AsyncTask <String, Void, String>{
+public class ConnectionBuilder extends AsyncTask <String, Void, String>{
 
     private Context context;
     private TextView statusText;
+    private List<InetAddress> clientAdressList = new ArrayList<>();
+    private static final int PORT = 8888;
 
-    public FileServerAsyncTask(Context context, View statusText) {
+    public ConnectionBuilder(Context context, View statusText) {
         this.context = context;
         this.statusText = (TextView) statusText;
     }
 
-    public FileServerAsyncTask() {
+    public ConnectionBuilder() {
     }
 
     @Override
@@ -39,20 +44,24 @@ public class FileServerAsyncTask extends AsyncTask <String, Void, String>{
              */
 
 
-            ServerSocket serverSocket = new ServerSocket(8888);
+            ServerSocket serverSocket = new ServerSocket(PORT);
             Log.d("Waiting for client","true");
             Socket client = serverSocket.accept();
 
             InputStream inputstream = client.getInputStream();
+            clientAdressList.add(client.getInetAddress());
+
+            for(InetAddress clientAdress : clientAdressList){
+                Log.d("Client Address",""+clientAdress);
+            }
+
+            ConnectionState.getInstance().setClients(clientAdressList);
 
             if(inputstream!=null){
                 return convertStreamToString(inputstream);
             }
 
-            /**
-             * If this code is reached, a client has connected and transferred data
-             * Save the input stream from the client as a JPEG file
-             */
+
 
 
             //TODO: This part is from http://developer.android.com/guide/topics/connectivity/wifip2p.html for JPEGs
@@ -85,7 +94,8 @@ public class FileServerAsyncTask extends AsyncTask <String, Void, String>{
     protected void onPostExecute(String result) {
         if (result != null) {
 
-            Log.d("Received String", result);
+            Log.d("Handshake", result);
+
             /*
             statusText.setText("File copied - " + result);
             Intent intent = new Intent();

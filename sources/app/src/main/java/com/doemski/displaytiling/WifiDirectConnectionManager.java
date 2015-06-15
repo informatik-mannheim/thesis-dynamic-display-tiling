@@ -29,9 +29,7 @@ public class WifiDirectConnectionManager {
             @Override
             public void onPeersAvailable(final WifiP2pDeviceList peers) {
 
-                Log.d("isMaster, shouldConnect", isMaster + ", " + shouldConnect);
-                //Show connection dialog only on master's screen if not already connected //TODO:Status stuff not workign. needed so windows dont keep popping up
-                if(isMaster&&shouldConnect){// && acceptableStatus()){
+                if(isMaster&&shouldConnect){
                     if (peers.getDeviceList().size() >= 1) {
                         Log.d("Peers Available", "Yes");
 
@@ -65,14 +63,14 @@ public class WifiDirectConnectionManager {
         wifiP2pManager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-                Log.d("discover p2p peers", "success");
+//                Log.d("discover p2p peers", "success");
 
 
             }
 
             @Override
             public void onFailure(int reasonCode) {
-                Log.d("discover p2p peers", "failure: reasonCode: " + reasonCode);
+//                Log.d("discover p2p peers", "failure: reasonCode: " + reasonCode);
             }
         });
     }
@@ -80,25 +78,13 @@ public class WifiDirectConnectionManager {
     public void connectToPeer(WifiP2pDevice device){
         WifiP2pConfig config = new WifiP2pConfig();
         config.deviceAddress = device.deviceAddress;
+        config.groupOwnerIntent = 15;
         wifiP2pManager.connect(channel, config, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
 
                 Log.d("Connecting to Peer", "Success");
 
-                /*
-                wifiP2pManager.requestConnectionInfo(channel, new WifiP2pManager.ConnectionInfoListener() {
-                    @Override
-                    public void onConnectionInfoAvailable(WifiP2pInfo info) {
-                        Log.d("Connection Info", info.toString());
-                    }
-                });
-                if(isMaster) {
-                    new FileServerAsyncTask().execute();
-                } else {
-
-                }
-                */
             }
 
             @Override
@@ -107,24 +93,4 @@ public class WifiDirectConnectionManager {
             }
         });
     }
-
-    private int getDeviceStatus(){
-        String deviceTemp = WifiP2pManager.EXTRA_WIFI_P2P_DEVICE.replaceAll("[\\D]", "");
-        if(deviceTemp.length()>0) {
-
-            int deviceStatus = Integer.parseInt(deviceTemp.substring(deviceTemp.length() - 1));
-            Log.d("device status", "" + deviceStatus);
-
-            return deviceStatus;
-        }
-        return -1;
-    }
-
-    private boolean acceptableStatus(){
-        int status = getDeviceStatus();
-
-        return status != 0;
-    }
-
-
 }
