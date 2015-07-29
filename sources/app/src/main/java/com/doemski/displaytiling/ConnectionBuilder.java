@@ -46,47 +46,33 @@ public class ConnectionBuilder extends AsyncTask <String, Void, String>{
 
             ServerSocket serverSocket = new ServerSocket(PORT);
             Log.d("Waiting for client","true");
-            Socket client = serverSocket.accept();
+            Socket clientSocket = serverSocket.accept();
+            Log.d("CONNECTIONBUILDER", "1");
 
-            InputStream inputstream = client.getInputStream();
-            clientAdressList.add(client.getInetAddress());
+            InputStream inputstream = clientSocket.getInputStream();
+            Log.d("CONNECTIONBUILDER","2");
+            clientAdressList.add(clientSocket.getInetAddress());
+            Log.d("CONNECTIONBUILDER", "3");
 
             for(InetAddress clientAdress : clientAdressList){
                 Log.d("Client Address",""+clientAdress);
             }
+            Log.d("CONNECTIONBUILDER","4");
 
             ConnectionState.getInstance().setClients(clientAdressList);
+            Log.d("CONNECTIONBUILDER", "5");
 
             if(inputstream!=null){
+                Log.d("CONNECTIONBUILDER","Inputstream received");
                 return convertStreamToString(inputstream);
             }
 
-
-
-
-            //TODO: This part is from http://developer.android.com/guide/topics/connectivity/wifip2p.html for JPEGs
-            /*
-            final File f = new File(Environment.getExternalStorageDirectory() + "/"
-                    + context.getPackageName() + "/wifip2pshared-" + System.currentTimeMillis()
-                    + ".jpg");
-
-            File dirs = new File(f.getParent());
-            if (!dirs.exists())
-                dirs.mkdirs();
-            f.createNewFile();
-            InputStream inputstream = client.getInputStream();
-            f.copyFile(inputstream, new FileOutputStream(f));
-            serverSocket.close();
-            return f.getAbsolutePath();
-            */
-            return "test";
+            return "No Handshake Received";
         } catch (IOException e) {
             Log.e("AsyncTask Exception",e+"");
             return null;
         }
     }
-
-
     /**
      * Start activity that can handle the JPEG image
      */
@@ -96,13 +82,6 @@ public class ConnectionBuilder extends AsyncTask <String, Void, String>{
 
             Log.d("Handshake", result);
 
-            /*
-            statusText.setText("File copied - " + result);
-            Intent intent = new Intent();
-            intent.setAction(android.content.Intent.ACTION_VIEW);
-            intent.setDataAndType(Uri.parse("file://" + result), "image*//*");
-            context.startActivity(intent);
-            */
         }
     }
 

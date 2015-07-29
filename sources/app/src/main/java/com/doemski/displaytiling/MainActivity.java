@@ -182,7 +182,7 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
                         crossIcon.setX(crossIconX);
                         crossIcon.setY(crossIconY);
 
-                        //dragging the crossIcon off the screen TODO: use  if(event.getEdgeFlags()==MotionEvent.EDGE_RIGHT) instead?
+                        //dragging the crossIcon off the screen
                         if (event.getRawX() >= mainImageView.getWidth() - 30) {
                             startTilingProcess(event.getRawX(), event.getRawY(), Direction.RIGHT);
                         }
@@ -323,7 +323,7 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
 
                 mainImageView.buildDrawingCache();
                 for(InetAddress client : conState.getClients()){
-                    ImageFileSender ims = new ImageFileSender(getApplicationContext(), mainImageView.getDrawingCache());
+                    ImageFileSender ims = new ImageFileSender(getApplicationContext(), mainImageView.getDrawingCache(), swipe);
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                         ims.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, (client.toString()));

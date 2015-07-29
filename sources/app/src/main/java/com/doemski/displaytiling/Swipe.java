@@ -34,8 +34,6 @@ public class Swipe {
         }
     }
 
-    //TODO: Swipe Comparison (angles +-10deg?)
-
     public void setSwipeEndPoint(Vector2d swipeEndPoint){
         this.swipeEndPoint = swipeEndPoint;
         swipeInProgress = false;
@@ -47,6 +45,15 @@ public class Swipe {
 
     public Direction getDirection(){
         return direction;
+    }
+
+    public boolean isSwipeSimilar(Swipe swipe){
+        if(swipe.getDirection()==this.getDirection()){
+            if(Math.abs(swipe.getAngle()-this.getAngle())<10){
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

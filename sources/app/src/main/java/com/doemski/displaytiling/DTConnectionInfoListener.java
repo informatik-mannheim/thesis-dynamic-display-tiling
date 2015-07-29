@@ -1,11 +1,18 @@
 package com.doemski.displaytiling;
 
+import android.content.Context;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.util.Log;
 
 
 public class DTConnectionInfoListener implements WifiP2pManager.ConnectionInfoListener{
+
+    Context context;
+
+    public DTConnectionInfoListener(Context context){
+        this.context = context;
+    }
 
     @Override
     public void onConnectionInfoAvailable(final WifiP2pInfo info) {
@@ -30,7 +37,7 @@ public class DTConnectionInfoListener implements WifiP2pManager.ConnectionInfoLi
             // you'll want to create a client thread that connects to the group
             // owner.
             Log.d("is Group Owner", "false");
-            new ClientAsyncTask().execute(hostAdress);
+            new ClientAsyncTask(context).execute(hostAdress);
 
         }
     }

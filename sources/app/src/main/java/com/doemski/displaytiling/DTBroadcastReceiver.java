@@ -64,10 +64,12 @@ public class DTBroadcastReceiver extends BroadcastReceiver{
                     // We are connected with the other device, request connection
                     // info to find group owner IP
                     conState.setConnected(true);
-                    DTConnectionInfoListener connectionInfoListener= new DTConnectionInfoListener();
+                    DTConnectionInfoListener connectionInfoListener= new DTConnectionInfoListener(context);
                     wifiP2pManager.requestConnectionInfo(channel, connectionInfoListener);
                 }else{
-                    conState.setConnected(false);
+                    //if(!conState.isConnected()) { TODO: TEST THIS! might solve multiple "no connection" windows
+                        conState.setConnected(false);
+                    //}
                 }
 
                 break;
