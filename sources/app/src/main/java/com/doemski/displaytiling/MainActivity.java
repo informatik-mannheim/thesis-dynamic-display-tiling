@@ -2,17 +2,22 @@ package com.doemski.displaytiling;
 
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.graphics.drawable.BitmapDrawable;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pManager;
-import android.os.AsyncTask;
-import android.os.Build;
+import android.provider.MediaStore;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -25,17 +30,16 @@ import android.widget.Toast;
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.software.shell.fab.FloatingActionButton;
 
-import java.net.InetAddress;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 
 public class MainActivity extends ActionBarActivity implements View.OnTouchListener, Updateable{
-    public static final String TAG = "";
-
-    //TODO: ActionBarActivity Deprecated...
 
     ImageView mainImageView;
+    Bitmap mainImageViewBitmap=null;
     FloatingActionButton fabAddImage;
     FloatingActionButton crossIcon;
     boolean isFullScreen,isConnected;
@@ -44,15 +48,10 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
     boolean crossIconMoving;//TODO:make local somehow
     boolean togglingFullscreenFirstTime=true;//TODO:change this! needed to determine crossIconXCentered,crossIconYCentered
 
-    boolean isSwiping=false;
-
     private Swipe swipe;
 
     private WifiDirectConnectionManager wifiDirectConnectionManager;
     private IntentFilter intentFilter;
-
-    private List<MaterialDialog> listeners = new ArrayList<>();
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,6 +80,76 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
 
         wifiDirectConnectionManager.discoverPeers(false);
         ConnectionState.getInstance().registerListener(this);
+
+        //Register receiver to listen for stitch
+        intentFilterStitch = new IntentFilter("com.doemski.displaytiling.ACTION_STITCH_HAPPENED");
+        broadcastReceiverStitch = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Log.d("MAINACTIVITY","ACTION_STITCH_HAPPENED");
+                sendBitmap();
+            }
+        };
+
+        intentFilterBitmap = new IntentFilter("com.doemski.displaytiling.ACTION_SHOW_BITMAP");
+        broadcastReceiverBitmap = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Log.d("MAINACTIVITY","ACTION_SHOW_BITMAP");
+                if(intent.hasExtra("bitmap")) {
+                    byte[] byteArray = intent.getByteArrayExtra("bitmap");
+                    Bitmap bmp = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.length);
+
+                    DisplayMetrics displayMetrics = context.getResources().getDisplayMetrics();
+
+                    Log.d("MAINACTIVITY","BITMAP: " + bmp.getWidth() + " " + bmp.getHeight());
+                    Log.d("MAINACTIVITY", "BITMAPDP: " + bmp.getWidth() / displayMetrics.density + " " + bmp.getHeight() / displayMetrics.density);
+
+                    float dpHeightScreen = displayMetrics.heightPixels / displayMetrics.density;
+                    float dpWidthScreen = displayMetrics.widthPixels / displayMetrics.density;
+
+                    Log.d("MAINACTIVITY", "SCREENSIZE dpHeight: " + dpWidthScreen + " " + dpHeightScreen);
+
+                    //mainImageView.setBackgroundColor(Color.RED);
+
+
+                    WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+                    DisplayMetrics dm = new DisplayMetrics();
+                    wm.getDefaultDisplay().getMetrics(dm);
+                    int widthScreen=dm.widthPixels;
+                    int heightScreen=dm.heightPixels;
+
+                    int newHeight = widthScreen*bmp.getHeight()/bmp.getWidth();
+                    Log.d("MAINACTIVITY", "bmpheight: " + widthScreen + "*" + bmp.getHeight() + "/" + bmp.getWidth()+"="+newHeight);
+
+
+                    Bitmap otherBitmap = Bitmap.createScaledBitmap(bmp, widthScreen, heightScreen, false);
+                    mainImageView.setImageBitmap(otherBitmap);
+                    Log.d("MAINACTIVITY", "imgView: " + mainImageView.getWidth() + " " + mainImageView.getHeight());
+                }
+            }
+        };
+    }
+
+    BroadcastReceiver broadcastReceiverStitch, broadcastReceiverBitmap;
+    IntentFilter intentFilterStitch, intentFilterBitmap;
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(wifiDirectConnectionManager.getReceiver(), intentFilter);
+        registerReceiver(broadcastReceiverStitch, intentFilterStitch);
+        registerReceiver(broadcastReceiverBitmap, intentFilterBitmap);
+        ConnectionState.getInstance().registerListener(this);
+    }
+
+    @Override
+    protected void onPause(){
+        super.onPause();
+        unregisterReceiver(wifiDirectConnectionManager.getReceiver());
+        unregisterReceiver(broadcastReceiverStitch);
+        unregisterReceiver(broadcastReceiverBitmap);
+        ConnectionState.getInstance().unregisterListener(this);
     }
 
     @Override
@@ -108,6 +177,13 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
     public void onActivityResult(int reqCode, int resCode, Intent data){
         if(resCode == RESULT_OK){
             if(reqCode == 1) {
+                Uri imageUri = data.getData();
+                try {
+                    mainImageViewBitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), imageUri);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
                 mainImageView.setImageURI(data.getData());
             }
         }
@@ -221,35 +297,30 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
                     if (event.getRawX() <= 100) {
                     //touch on left side
                         swipeStartPoint = new Vector2d(event.getRawX(),event.getRawY());
-                        swipe = new Swipe(false, Direction.RIGHT, swipeStartPoint);
+                        swipe = new Swipe(this, false, Direction.RIGHT, swipeStartPoint);
                     } else if(event.getRawX() >= mainImageView.getWidth()-100){
                     //touch on right side
                         swipeStartPoint = new Vector2d(event.getRawX(),event.getRawY());
-                        swipe = new Swipe(false, Direction.LEFT, swipeStartPoint);
+                        swipe = new Swipe(this, false, Direction.LEFT, swipeStartPoint);
                     } else if(event.getRawY() <= 100){
                     //touch on top of screen
                         swipeStartPoint = new Vector2d(event.getRawX(),event.getRawY());
-                        swipe = new Swipe(false, Direction.DOWN, swipeStartPoint);
+                        swipe = new Swipe(this, false, Direction.DOWN, swipeStartPoint);
                     } else if(event.getRawY() >= mainImageView.getHeight()-100){
                     //touch on bottom of screen
                         swipeStartPoint = new Vector2d(event.getRawX(),event.getRawY());
-                        swipe = new Swipe(false, Direction.UP, swipeStartPoint);
+                        swipe = new Swipe(this, false, Direction.UP, swipeStartPoint);
                     } else {
                     //touch on center of screen
                         toggleFullScreen();
                     }
                     break;
-                case MotionEvent.ACTION_MOVE:
-                    if(isSwiping){
-
-                    }
-                    break;
                 case MotionEvent.ACTION_UP:
                     if(swipe != null){
                         if(swipe.inProgress()) {
-                            swipe.setSwipeEndPoint( new Vector2d(event.getRawX(), event.getRawY()));
+                            swipe.setSwipeEndPoint(new Vector2d(event.getRawX(), event.getRawY()));
                             Log.d("Swipe", swipe.toString());
-                            wifiDirectConnectionManager.discoverPeers(false);
+                            //wifiDirectConnectionManager.discoverPeers(false);
                         }
                     }
                     break;
@@ -259,25 +330,18 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
         return true;
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        registerReceiver(wifiDirectConnectionManager.getReceiver(), intentFilter);
-        ConnectionState.getInstance().registerListener(this);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        unregisterReceiver(wifiDirectConnectionManager.getReceiver());
-        ConnectionState.getInstance().unregisterListener(this);
+    private void startTilingProcess(float x, float y, Direction dir){
+        Vector2d centerPoint = new Vector2d(mainImageView.getWidth() / 2, mainImageView.getHeight() / 2);
+        Vector2d edgePoint = new Vector2d(x, y);
+        swipe = new Swipe(this, true, dir, centerPoint, edgePoint);
+        Log.d("MAINACTIVITY", swipe.toString());
     }
 
     private void buildAddButton(){
         fabAddImage = (FloatingActionButton) findViewById(R.id.action_button);
         fabAddImage.setButtonColor(getResources().getColor(R.color.accent));
         fabAddImage.setButtonColorPressed(getResources().getColor(R.color.accent_dark));
-        fabAddImage.setImageDrawable(getResources().getDrawable(R.drawable.fab_plus_icon));//TODO: Deprecated
+        fabAddImage.setImageDrawable(getResources().getDrawable(R.drawable.fab_plus_icon));
         fabAddImage.setAnimationOnShow(FloatingActionButton.Animations.FADE_IN);
         fabAddImage.setAnimationOnHide(FloatingActionButton.Animations.FADE_OUT);
         fabAddImage.setOnClickListener(new View.OnClickListener() {
@@ -311,41 +375,29 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
         crossIcon.hide();
     }
 
-    private void startTilingProcess(float x, float y, Direction dir){
-        Vector2d centerPoint = new Vector2d(mainImageView.getWidth() / 2, mainImageView.getHeight() / 2);
-        Vector2d edgePoint = new Vector2d(x, y);
-        swipe = new Swipe(true, dir, centerPoint, edgePoint);
-        Log.d("SWIPE", swipe.toString());
-
-        ConnectionState conState = ConnectionState.getInstance();
-        if(conState.isConnected()){
-            if(conState.getClients()!=null){
-
-                mainImageView.buildDrawingCache();
-                for(InetAddress client : conState.getClients()){
-                    ImageFileSender ims = new ImageFileSender(getApplicationContext(), mainImageView.getDrawingCache(), swipe);
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                        ims.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, (client.toString()));
-                    } else {
-                        ims.execute(client.toString(), "");
-                    }
-
-                    Log.d("GROUP OWNER", "ImageFileSender executed");
-                }
-            }
-        }
-    }
+    private boolean isWindowOpen=false;
+    private MaterialDialog window;
 
     public void openPeerListWindow(final WifiP2pDeviceList peers, String[] names, final String[] adresses){
-        new MaterialDialog.Builder(this)
+        if(isWindowOpen){
+            window.dismiss();
+        }
+        isWindowOpen=true;
+        window = new MaterialDialog.Builder(this)
                 .title(R.string.p2pConnectionDialogueTitle)
                 .items(names)
                 .itemsCallback(new MaterialDialog.ListCallback() {
                     @Override
                     public void onSelection(MaterialDialog dialog, View view, int which, CharSequence text) {
-                        Log.d("Device selected", "Name: " + text);
+                        Log.d("MAINACTIVITY", "Device Selected, Name: " + text);
                         wifiDirectConnectionManager.connectToPeer(peers.get(adresses[which]));
+                        isWindowOpen = false;
+                    }
+                })
+                .dismissListener(new DialogInterface.OnDismissListener() {
+                    @Override
+                    public void onDismiss(DialogInterface dialog) {
+                        isWindowOpen = false;
                     }
                 })
                 .autoDismiss(true)
@@ -356,31 +408,50 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
     public void openConnectionWindow(boolean shouldConnect){
 
         if(shouldConnect){
-            new MaterialDialog.Builder(this)
-                    .title(R.string.connection_window_not_connected_title)
-                    .content(R.string.connection_widow_not_connected_content)
-                    .positiveText(R.string.agree)
-                    .callback(new MaterialDialog.ButtonCallback() {
-                        @Override
-                        public void onPositive(MaterialDialog dialog) {
-                            wifiDirectConnectionManager.discoverPeers(true);
-                        }
-                    })
-                    .show();
+            if(!isWindowOpen){
+                window = new MaterialDialog.Builder(this)
+                        .title(R.string.connection_window_not_connected_title)
+                        .content(R.string.connection_widow_not_connected_content)
+                        .positiveText(R.string.agree)
+                        .callback(new MaterialDialog.ButtonCallback() {
+                            @Override
+                            public void onPositive(MaterialDialog dialog) {
+                                wifiDirectConnectionManager.discoverPeers(true);
+                            }
+                        })
+                        .dismissListener(new DialogInterface.OnDismissListener() {
+                            @Override
+                            public void onDismiss(DialogInterface dialog) {
+                                isWindowOpen=false;
+                            }
+                        })
+                        .show();
+                isWindowOpen=true;
+            }
         } else {
+            if(isWindowOpen){
+                window.dismiss();
+            }
             new MaterialDialog.Builder(this)
                     .title(R.string.connection_window_connected_title)
                     .content(R.string.connection_window_connected_content)
                     .positiveText(R.string.cool)
+                    .dismissListener(new DialogInterface.OnDismissListener() {
+                        @Override
+                        public void onDismiss(DialogInterface dialog) {
+                            isWindowOpen=false;
+                        }
+                    })
                     .show();
-
+            isWindowOpen=true;
         }
+
     }
 
     @Override
     public void connectionStateChanged(boolean isConnected) {
 
-        Log.d("Update","Connection: " + isConnected);
+        Log.d("Update", "Connection: " + isConnected);
 
         //Not Connected - Initiate Connection Process
         if(!this.isConnected && !isConnected){
@@ -400,5 +471,32 @@ public class MainActivity extends ActionBarActivity implements View.OnTouchListe
         }
 
         this.isConnected=isConnected;
+    }
+
+    private void sendBitmap(){
+        //mainImageView.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT));
+        mainImageView.getLayoutParams();
+        mainImageView.buildDrawingCache();
+        Bitmap bmp = mainImageView.getDrawingCache();
+        //mainImageView.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.FILL_PARENT, RelativeLayout.LayoutParams.FILL_PARENT));
+        //Convert to byte array
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        bmp.compress(Bitmap.CompressFormat.PNG, 100, stream);
+        byte[] byteArray = stream.toByteArray();
+
+        if(mainImageViewBitmap!=null){
+            ByteArrayOutputStream stream2 = new ByteArrayOutputStream();
+            mainImageViewBitmap.compress(Bitmap.CompressFormat.JPEG,100,stream2);
+            byteArray = stream2.toByteArray();
+        }
+
+        Intent i = new Intent("com.doemski.displaytiling.ACTION_BITMAP");
+        i.putExtra("image", byteArray);
+        sendBroadcast(i);
+    }
+
+    public static float dipToPixels(Context context, float dipValue) {
+        DisplayMetrics metrics = context.getResources().getDisplayMetrics();
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dipValue, metrics);
     }
 }

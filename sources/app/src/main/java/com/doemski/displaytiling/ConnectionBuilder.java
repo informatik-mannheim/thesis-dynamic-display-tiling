@@ -47,20 +47,20 @@ public class ConnectionBuilder extends AsyncTask <String, Void, String>{
             ServerSocket serverSocket = new ServerSocket(PORT);
             Log.d("Waiting for client","true");
             Socket clientSocket = serverSocket.accept();
-            Log.d("CONNECTIONBUILDER", "1");
+
 
             InputStream inputstream = clientSocket.getInputStream();
-            Log.d("CONNECTIONBUILDER","2");
+
             clientAdressList.add(clientSocket.getInetAddress());
-            Log.d("CONNECTIONBUILDER", "3");
+
 
             for(InetAddress clientAdress : clientAdressList){
                 Log.d("Client Address",""+clientAdress);
             }
-            Log.d("CONNECTIONBUILDER","4");
+
 
             ConnectionState.getInstance().setClients(clientAdressList);
-            Log.d("CONNECTIONBUILDER", "5");
+
 
             if(inputstream!=null){
                 Log.d("CONNECTIONBUILDER","Inputstream received");

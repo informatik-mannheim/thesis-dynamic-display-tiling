@@ -34,6 +34,7 @@ public class ConnectionState {
     public List<InetAddress> getClients(){
         return clients;
     }
+
     public boolean isConnected(){
         return this.connected;
     }

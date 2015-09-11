@@ -10,9 +10,11 @@
     <ImageView
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
+        android:layout_centerInParent="true"
         android:src="@drawable/swipe2tile"
         android:id="@+id/mainImageView"
-        android:layout_alignParentEnd="true" />
+        android:adjustViewBounds="true"
+        android:background="@color/fab_material_red_500"/>
 
     <com.software.shell.fab.FloatingActionButton
     android:id="@+id/action_button"

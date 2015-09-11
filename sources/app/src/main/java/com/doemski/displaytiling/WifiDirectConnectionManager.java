@@ -58,24 +58,29 @@ public class WifiDirectConnectionManager {
     }
 
     public void discoverPeers(final boolean isMaster){
+
+        Log.d("WIFIDIRCONMANAGER","DISCOVER PEARS()");
         this.isMaster=isMaster;
         shouldConnect = true;
         wifiP2pManager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-//                Log.d("discover p2p peers", "success");
+                Log.d("discover p2p peers", "success");
 
 
             }
 
             @Override
             public void onFailure(int reasonCode) {
-//                Log.d("discover p2p peers", "failure: reasonCode: " + reasonCode);
+                Log.d("discover p2p peers", "failure: reasonCode: " + reasonCode);
             }
         });
     }
 
     public void connectToPeer(WifiP2pDevice device){
+
+        Log.d("WIFIDIRCONMANAGER","CONECTTOPEAR()");
+
         WifiP2pConfig config = new WifiP2pConfig();
         config.deviceAddress = device.deviceAddress;
         config.groupOwnerIntent = 15;
@@ -89,7 +94,7 @@ public class WifiDirectConnectionManager {
 
             @Override
             public void onFailure(int reason) {
-                Log.d("Connecting to Peer", "failure: reasonCode: " + reason);
+                Log.d("Connecting to Peer", "failure: reason Code: " + reason);
             }
         });
     }

@@ -20,6 +20,7 @@ public class DTBroadcastReceiver extends BroadcastReceiver{
     private WifiP2pManager.Channel channel;
     private Activity activity;
     private WifiP2pManager.PeerListListener peerListListener;
+    private DTConnectionInfoListener connectionInfoListener;
 
     public DTBroadcastReceiver(WifiP2pManager manager, WifiP2pManager.Channel channel, Activity activity, WifiP2pManager.PeerListListener peerListListener) {
         super();
@@ -33,15 +34,11 @@ public class DTBroadcastReceiver extends BroadcastReceiver{
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
 
-
-
         switch (action){
             case WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION:
                 int state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1);
                 if (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED) {
                     // Wifi Direct is enabled
-                    //Log.d("WifiP2p", "Enabled");
-
 
                 } else {
                     // Wi-Fi Direct is not enabled
@@ -50,10 +47,12 @@ public class DTBroadcastReceiver extends BroadcastReceiver{
                 break;
             case WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION:
                 if (wifiP2pManager != null) {
+                    Log.d("DTBROADCASTREC", "PEERS_CHANGED");
                     wifiP2pManager.requestPeers(channel, peerListListener);
                 }
                 break;
             case WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION:
+                Log.d("DTBROADCASTREC", "CONNECTION_CHANGED");
                 if (wifiP2pManager == null) {
                     return;
                 }
@@ -64,12 +63,12 @@ public class DTBroadcastReceiver extends BroadcastReceiver{
                     // We are connected with the other device, request connection
                     // info to find group owner IP
                     conState.setConnected(true);
-                    DTConnectionInfoListener connectionInfoListener= new DTConnectionInfoListener(context);
+                    if(connectionInfoListener==null) {
+                        connectionInfoListener = new DTConnectionInfoListener(context);
+                    }
                     wifiP2pManager.requestConnectionInfo(channel, connectionInfoListener);
                 }else{
-                    //if(!conState.isConnected()) { TODO: TEST THIS! might solve multiple "no connection" windows
                         conState.setConnected(false);
-                    //}
                 }
 
                 break;
